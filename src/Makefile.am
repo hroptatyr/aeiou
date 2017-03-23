@@ -19,6 +19,12 @@ SUFFIXES =
 
 CLEANFILES += version.c
 EXTRA_DIST += version.c.in
+EXTRA_DIST += nifty.h
+
+bin_PROGRAMS += aeiou
+aeiou_SOURCES = aeiou.c aeiou.yuck
+aeiou_SOURCES += version.c version.h
+BUILT_SOURCES += aeiou.yucc
 
 
 ## version rules
