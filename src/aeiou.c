@@ -49,6 +49,8 @@
 #include <assert.h>
 #include "nifty.h"
 
+#define BSZ	(4096U)
+
 
 static void
 __attribute__((format(printf, 1, 2)))
@@ -93,7 +95,7 @@ _chex(const uint_fast8_t c)
 static size_t
 aeebuf(const uint_fast8_t *buf, size_t bsz)
 {
-	char out[4U * 4096U];
+	char out[4U * BSZ];
 	ssize_t i = 0U;
 	size_t n = 0U;
 
@@ -181,7 +183,7 @@ aeebuf(const uint_fast8_t *buf, size_t bsz)
 static size_t
 aedbuf(const uint_fast8_t *buf, size_t bsz)
 {
-	char out[4U * 4096U];
+	char out[4U * BSZ];
 	ssize_t i = 0U;
 	size_t n = 0U;
 
@@ -270,7 +272,7 @@ aedbuf(const uint_fast8_t *buf, size_t bsz)
 static int
 aedfd(int fd)
 {
-	uint_fast8_t buf[4096U];
+	uint_fast8_t buf[BSZ];
 	size_t of = 0U;
 	ssize_t nrd;
 
@@ -287,7 +289,7 @@ aedfd(int fd)
 static int
 aeefd(int fd)
 {
-	uint_fast8_t buf[4096U];
+	uint_fast8_t buf[BSZ];
 	size_t of = 0U;
 	ssize_t nrd;
 
