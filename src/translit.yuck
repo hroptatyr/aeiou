@@ -1,0 +1,3 @@
+Usage: translit [OPTIONS] [FILE]...
+
+Transliterate FILEs.

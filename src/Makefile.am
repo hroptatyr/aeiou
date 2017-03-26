@@ -26,6 +26,12 @@ aeiou_SOURCES = aeiou.c aeiou.yuck
 aeiou_SOURCES += version.c version.h
 BUILT_SOURCES += aeiou.yucc
 
+bin_PROGRAMS += translit
+translit_SOURCES = translit.c translit.yuck
+translit_SOURCES += version.c version.h
+EXTRA_translit_SOURCES = unidecode_tr.c
+BUILT_SOURCES += translit.yucc
+
 
 ## version rules
 version.c: version.c.in $(top_builddir)/.version
