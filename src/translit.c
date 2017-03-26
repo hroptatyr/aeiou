@@ -52,7 +52,7 @@
 #define BSZ	(4096U)
 
 static char *tr[0x10000U] = {
-#include "unidecode_tr.c"
+#include "tr_unidecode.c"
 };
 
 
