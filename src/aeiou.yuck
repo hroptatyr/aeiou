@@ -1,0 +1,6 @@
+Usage: aeiou [OPTIONS...] [FILE]...
+
+Reencode FILEs in uniform unicode.
+
+  -c, --ascii           Replace unicode characters by code sequences.
+  -d, --decode          Replace code sequence by unicode characters.
