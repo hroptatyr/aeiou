@@ -226,13 +226,13 @@ transbuf(const uint_fast8_t *buf, size_t bsz)
 
 		rechk:
 			itr = 0U;
-			itr ^= tr[stash][alt++];
+			itr ^= (unsigned char)tr[stash][alt++];
 			itr <<= 8U;
-			itr ^= tr[stash][alt++];
+			itr ^= (unsigned char)tr[stash][alt++];
 			itr <<= 8U;
-			itr ^= tr[stash][alt++];
+			itr ^= (unsigned char)tr[stash][alt++];
 			itr <<= 8U;
-			itr ^= tr[stash][alt++];
+			itr ^= (unsigned char)tr[stash][alt++];
 
 			if (itr == x) {
 				/* bingo */
