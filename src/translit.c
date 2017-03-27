@@ -138,14 +138,16 @@ transbuf(const uint_fast8_t *buf, size_t bsz)
 		}
 		continue;
 	tr:
-		if (tr[x]) {
-			out[n++] = tr[x][0U];
-			for (size_t j = 1U; tr[x][j]; j++) {
-				out[n++] = tr[x][j];
-			}
-		} else {
+		if (UNLIKELY(tr[x] == NULL || x >= countof(tr))) {
 			out[n++] = '?';
+			continue;
 		}
+		/* otherwise print transliteration */
+		out[n++] = tr[x][0U];
+		for (size_t j = 1U; tr[x][j]; j++) {
+			out[n++] = tr[x][j];
+		}
+		continue;
 	}
 
 	write(STDOUT_FILENO, out, n);
