@@ -31,6 +31,7 @@ EXTRA_translit_SOURCES = unidecode_tr.c
 BUILT_SOURCES += translit.yucc
 
 pkgdata_DATA += tr_639_1_de.tr
+pkgdata_DATA += tr_639_1_ru.tr
 
 ## version rules
 version.c: version.c.in $(top_builddir)/.version
