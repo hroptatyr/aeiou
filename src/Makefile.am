@@ -46,6 +46,13 @@ SUFFIXES += .yucc
 	$(AM_V_GEN) PATH=$(top_builddir)/build-aux:"$${PATH}" \
 		yuck$(EXEEXT) gen -o $@ $<
 
+## tr rule
+SUFFIXES += .tr
+.c.tr:
+	$(AM_V_GEN) $(COMPILE) -DTRFILE='"$<"' $(srcdir)/translcc.c -o tr.out && \
+		./tr.out > $@
+	$(RM) tr.out
+
 ## Create preprocessor output (debugging purposes only)
 .c.i:
 	$(COMPILE) -E -o $@ $<
