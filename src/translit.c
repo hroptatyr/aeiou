@@ -1,4 +1,4 @@
-/*** aeiou.c -- ascii<->unicode converter/normaliser
+/*** translit.c -- unicode -> ascii transliterator
  *
  * Copyright (C) 2014-2017 Sebastian Freundt
  *
@@ -44,12 +44,19 @@
 #include <stddef.h>
 #include <string.h>
 #include <stdio.h>
+#include <sys/stat.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <assert.h>
+#include "tr_proto.h"
+#include "boobs.h"
 #include "nifty.h"
 
 #define BSZ	(4096U)
+
+static char *tr[0x10000U] = {
+#include "tr_unidecode.c"
+};
 
 
 static void
@@ -69,120 +76,92 @@ error(const char *fmt, ...)
 	return;
 }
 
-static inline char
-_hexc(const uint_fast8_t c)
+static struct tr_proto_s*
+open_tr(const char *fn)
 {
-	if (LIKELY(c < 10)) {
-		return (char)(c ^ '0');
+	struct tr_proto_s *dr = NULL;
+	struct stat st;
+	ssize_t z;
+	uint32_t n;
+	int fd;
+
+	if (UNLIKELY((fd = open(fn, O_RDONLY)) < 0)) {
+		return NULL;
+	} else if (UNLIKELY(read(fd, &n, sizeof(n)) < (ssize_t)sizeof(n))) {
+		goto clo;
+	} else if (UNLIKELY(!(n = be32toh(n)))) {
+		/* not necessarily unsuccessful */
+		goto clo;
+	} else if (UNLIKELY(n > countof(tr))) {
+		goto clo;
+	} else if (UNLIKELY(fstat(fd, &st) < 0)) {
+		goto clo;
+	} else if (UNLIKELY(st.st_size < (3 * n + 1) * (ssize_t)sizeof(n))) {
+		/* too small */
+		goto clo;
+	} else if (UNLIKELY((dr = malloc(st.st_size - sizeof(n))) == NULL)) {
+		/* shame */
+		goto clo;
 	}
-	/* no check for the upper bound of c */
-	return (char)(c + 'W');
+	/* we need to read everything */
+	z = st.st_size - sizeof(dr->n);
+	for (ssize_t nrd, of = 0;
+	     z > 0 && (nrd = read(fd, (uint8_t*)dr->data + of, z)) > 0;
+	     z -= nrd, of += nrd);
+	if (UNLIKELY(z > 0)) {
+	free:
+		/* read probably fucked */
+		free(dr);
+		dr = NULL;
+		goto clo;
+	}
+	/* should be max offset */
+	z = st.st_size - (2U * n + 1U) * sizeof(dr->n);
+	/* massage array, this is an all or nothing approach ... */
+	dr->n = n;
+	for (size_t i = 0U; i < n; i++) {
+		dr->data[0 + i] = be32toh(dr->data[0 + i]);
+		dr->data[n + i] = be32toh(dr->data[n + i]);
+		if (UNLIKELY(dr->data[0 + i] >= countof(tr) ||
+			     dr->data[n + i] >= z)) {
+			goto free;
+		}
+	}
+clo:
+	close(fd);
+	return dr;
 }
 
-static uint_fast32_t
-_chex(const uint_fast8_t c)
+static int
+close_tr(struct tr_proto_s *dr)
 {
-	if (LIKELY((c ^ '0') < 10)) {
-		return c ^ '0';
-	} else if ((c | 0x20) - 'W') {
-		return (c | 0x20) - 'W';
+	if (UNLIKELY(dr == NULL)) {
+		return -1;
 	}
-	/* no error code */
-	return 0U;
+	free(dr);
+	return 0;
+}
+
+static int
+install_tr(struct tr_proto_s *dr)
+{
+	char *of;
+
+	if (UNLIKELY(dr == NULL)) {
+		return -1;
+	}
+	of = (char*)(dr->data + (2U * dr->n));
+	for (size_t i = 0U; i < dr->n; i++) {
+		tr[dr->data[0 + i]] = of + dr->data[dr->n + i];
+	}
+	return 0;
 }
 
 
 static size_t
-aeebuf(const uint_fast8_t *buf, size_t bsz)
+transbuf(const uint_fast8_t *buf, size_t bsz)
 {
-	char out[4U * BSZ];
-	ssize_t i = 0U;
-	size_t n = 0U;
-
-	while (i < (ssize_t)bsz) {
-		/* utf8 seq ranges */
-		static const uint_fast32_t lohi[4U] = {
-			16U * (1U << (4U - 1U)),
-			16U * (1U << (8U - 1U)),
-			16U * (1U << (13U - 1U)),
-			16U * (1U << (16U - 1U)) + 16U * (1U << (13U - 1U)),
-		};
-		uint_fast32_t x = 0U;
-
-		if (LIKELY(buf[i] != '\\')) {
-		literal:
-			out[n++] = buf[i++];
-		} else if (i + 1U >= (ssize_t)bsz) {
-			/* grrr just when I got excited ... */
-			break;
-		} else if ((buf[i + 1] | 0x20U) != 'u') {
-			/* nope, not \u nor \U, something else */
-			goto literal;
-		} else if (i + 5U >= (ssize_t)bsz) {
-			/* better ask for more bytes then */
-			break;
-		} else if (buf[i + 1] == 'u') {
-			x ^= _chex(buf[i + 2U]);
-			x <<= 4U;
-			x ^= _chex(buf[i + 3U]);
-			x <<= 4U;
-			x ^= _chex(buf[i + 4U]);
-			x <<= 4U;
-			x ^= _chex(buf[i + 5U]);
-
-			i += 6U;
-			goto pr_mb;
-		} else if (i + 9U >= (ssize_t)bsz) {
-			break;
-		} else /*if (buf[i + 1] == 'U')*/ {
-			x ^= _chex(buf[i + 2U]);
-			x <<= 4U;
-			x ^= _chex(buf[i + 3U]);
-			x <<= 4U;
-			x ^= _chex(buf[i + 4U]);
-			x <<= 4U;
-			x ^= _chex(buf[i + 5U]);
-			x <<= 4U;
-			x ^= _chex(buf[i + 6U]);
-			x <<= 4U;
-			x ^= _chex(buf[i + 7U]);
-			x <<= 4U;
-			x ^= _chex(buf[i + 8U]);
-			x <<= 4U;
-			x ^= _chex(buf[i + 9U]);
-
-			i += 10U;
-			goto pr_mb;
-		}
-		continue;
-	pr_mb:
-		if (x < lohi[0U]) {
-			out[n++] = x;
-		} else if (x < lohi[1U]) {
-			/* 110x xxxx  10xx xxxx */
-			out[n++] = 0xc0U ^ (x >> 6U);
-			out[n++] = 0x80U ^ (x & 0b111111U);
-		} else if (x < lohi[2U]) {
-			/* 1110 xxxx  10xx xxxx  10xx xxxx */
-			out[n++] = 0xe0U | (x >> 12U);
-			out[n++] = 0x80U | ((x >> 6U) & 0b111111U);
-			out[n++] = 0x80U | (x & 0b111111U);
-		} else if (x < lohi[3U]) {
-			/* 1111 0xxx  10xx xxxx  10xx xxxx  10xx xxxx*/
-			out[n++] = 0xf0U | (x >> 18U);
-			out[n++] = 0x80U | ((x >> 12U) & 0b111111U);
-			out[n++] = 0x80U | ((x >> 6U) & 0b111111U);
-			out[n++] = 0x80U | (x & 0b111111U);
-		}
-	}
-
-	write(STDOUT_FILENO, out, n);
-	return bsz - i;
-}
-
-static size_t
-aedbuf(const uint_fast8_t *buf, size_t bsz)
-{
+	uint_fast32_t stash = 0U;
 	char out[4U * BSZ];
 	ssize_t i = 0U;
 	size_t n = 0U;
@@ -191,10 +170,10 @@ aedbuf(const uint_fast8_t *buf, size_t bsz)
 		uint_fast32_t x = 0U;
 
 		if (LIKELY(buf[i] < 0x80U)) {
-			out[n++] = buf[i++];
+			x = buf[i++];
 		} else if (buf[i] < 0xc2U) {
 			/* illegal utf8 */
-			out[n++] = '?';
+			x = '?';
 			i++;
 		} else if (buf[i] < 0xe0U) {
 			/* 110x xxxx 10xx xxxx */
@@ -202,23 +181,16 @@ aedbuf(const uint_fast8_t *buf, size_t bsz)
 				break;
 			}
 
-			out[n++] = '\\';
-			out[n++] = 'u';
-
 			x ^= buf[i + 0U] & 0b11111U;
 			x <<= 6U;
 			x ^= buf[i + 1U] & 0b111111U;
 
 			i += 2;
-			goto pr_u;
 		} else if (buf[i] < 0xf0U) {
 			/* 1110 xxxx 10xx xxxx 10xx xxxx */
 			if (UNLIKELY(i + 2U >= (ssize_t)bsz)) {
 				break;
 			}
-
-			out[n++] = '\\';
-			out[n++] = 'u';
 
 			x ^= buf[i + 0U] & 0b1111U;
 			x <<= 6U;
@@ -227,15 +199,11 @@ aedbuf(const uint_fast8_t *buf, size_t bsz)
 			x ^= buf[i + 2U] & 0b111111U;
 
 			i += 3;
-			goto pr_u;
 		} else if (buf[i] < 0xf8U) {
 			/* 1111 0xxx  10xx xxxx  10xx xxxx  10xx xxxx */
 			if (UNLIKELY(i + 3U >= (ssize_t)bsz)) {
 				break;
 			}
-
-			out[n++] = '\\';
-			out[n++] = 'U';
 
 			x ^= buf[i + 0U] & 0b111U;
 			x <<= 6U;
@@ -246,22 +214,71 @@ aedbuf(const uint_fast8_t *buf, size_t bsz)
 			x ^= buf[i + 3U] & 0b111111U;
 
 			i += 4;
-			goto pr_U;
 		} else {
-			out[n++] = '?';
+			x = '?';
 			i++;
 		}
+
+		/* check stash */
+		if (UNLIKELY(stash)) {
+			size_t alt = 0U;
+			uint32_t itr;
+
+		rechk:
+			itr = 0U;
+			itr ^= tr[stash][alt++];
+			itr <<= 8U;
+			itr ^= tr[stash][alt++];
+			itr <<= 8U;
+			itr ^= tr[stash][alt++];
+			itr <<= 8U;
+			itr ^= tr[stash][alt++];
+
+			if (itr == x) {
+				/* bingo */
+				out[n++] = tr[stash][alt];
+				while (tr[stash][++alt]) {
+					out[n++] = tr[stash][alt];
+				}
+				stash = 0U;
+				continue;
+			}
+			/* otherwise skip over string */
+			while (tr[stash][(alt += 4U) - 1U]);
+			/* now we're either on the last element
+			 * or on the next candidate */
+			if (!tr[stash][alt]) {
+				goto rechk;
+			}
+			/* otherwise 'twas the last element, print him */
+			{
+				out[n++] = tr[stash][alt];
+				while (tr[stash][++alt]) {
+					out[n++] = tr[stash][alt];
+				}
+				stash = 0U;
+				/* and print X as well */
+			}
+			stash = 0U;
+		}
+
+		if (LIKELY(x < 0x80U)) {
+			out[n++] = x;
+			continue;
+		} else if (UNLIKELY(tr[x] == NULL || x >= countof(tr))) {
+			out[n++] = '?';
+			continue;
+		} else if (UNLIKELY(!(out[n] = tr[x][0U]))) {
+			/* needs stashing */
+			stash = x;
+			continue;
+		}
+		/* otherwise print transliteration */
+		n++;
+		for (size_t j = 1U; tr[x][j]; j++) {
+			out[n++] = tr[x][j];
+		}
 		continue;
-	pr_U:
-		out[n++] = _hexc(x >> 28U & 0xfU);
-		out[n++] = _hexc(x >> 24U & 0xfU);
-		out[n++] = _hexc(x >> 20U & 0xfU);
-		out[n++] = _hexc(x >> 16U & 0xfU);
-	pr_u:
-		out[n++] = _hexc(x >> 12U & 0xfU);
-		out[n++] = _hexc(x >> 8U & 0xfU);
-		out[n++] = _hexc(x >> 4U & 0xfU);
-		out[n++] = _hexc(x >> 0U & 0xfU);
 	}
 
 	write(STDOUT_FILENO, out, n);
@@ -270,31 +287,14 @@ aedbuf(const uint_fast8_t *buf, size_t bsz)
 
 
 static int
-aedfd(int fd)
+transfd(int fd)
 {
 	uint_fast8_t buf[BSZ];
 	size_t of = 0U;
 	ssize_t nrd;
 
 	while ((nrd = read(fd, buf + of, sizeof(buf) - of)) > 0) {
-		of = aedbuf(buf, of + nrd);
-		for (size_t i = 0U; i < of; i++) {
-			buf[i] = buf[sizeof(buf) - of + i];
-		}
-	}
-	fsync(STDOUT_FILENO);
-	return 0;
-}
-
-static int
-aeefd(int fd)
-{
-	uint_fast8_t buf[BSZ];
-	size_t of = 0U;
-	ssize_t nrd;
-
-	while ((nrd = read(fd, buf + of, sizeof(buf) - of)) > 0) {
-		of = aeebuf(buf, of + nrd);
+		of = transbuf(buf, of + nrd);
 		for (size_t i = 0U; i < of; i++) {
 			buf[i] = buf[sizeof(buf) - of + i];
 		}
@@ -304,11 +304,12 @@ aeefd(int fd)
 }
 
 
-#include "aeiou.yucc"
+#include "translit.yucc"
 
 int
 main(int argc, char *argv[])
 {
+	struct tr_proto_s **trxt = NULL;
 	yuck_t argi[1U];
 	int rc = 0;
 	int fd;
@@ -318,9 +319,28 @@ main(int argc, char *argv[])
 		goto out;
 	}
 
+	if (argi->lang_nargs) {
+		trxt = calloc(sizeof(*trxt), argi->lang_nargs);
+	}
+	/* open all transliteration extensions */
+	for (size_t i = 0U; i < argi->lang_nargs; i++) {
+		if ((trxt[i] = open_tr(argi->lang_args[i])) == NULL) {
+			error("\
+Error: cannot load language file `%s'", argi->lang_args[i]);
+			rc = 2;
+			continue;
+		}
+	}
+	/* and install them */
+	for (size_t i = 0U; i < argi->lang_nargs; i++) {
+		if (trxt[i]) {
+			install_tr(trxt[i]);
+		}
+	}
+
 	if (!argi->nargs) {
 		fd = STDIN_FILENO;
-		goto option;
+		goto translit;
 	}
 	for (size_t i = 0U; i < argi->nargs; i++) {
 		if (UNLIKELY((fd = open(argi->args[i], O_RDONLY)) < 0)) {
@@ -329,30 +349,18 @@ main(int argc, char *argv[])
 			continue;
 		}
 
-	option:
-		if (argi->decode_flag) {
-			goto decode;
-		}
-		goto encode;
-
-	encode:
+	translit:
 		/* turn asciified buffer into utf8 */
-		if (UNLIKELY(aeefd(fd) < 0)) {
+		if (UNLIKELY(transfd(fd) < 0)) {
 			error("Error: cannot process file `%s'", argi->args[i]);
 			rc = 1;
 		}
-		goto close;
 
-	decode:
-		/* turn utf8 buffer into ascii */
-		if (UNLIKELY(aedfd(fd) < 0)) {
-			error("Error: cannot process file `%s'", argi->args[i]);
-			rc = 1;
-		}
-		goto close;
-
-	close:
 		close(fd);
+	}
+
+	for (size_t i = 0U; i < argi->lang_nargs; i++) {
+		(void)close_tr(trxt[i]);
 	}
 
 out:
@@ -360,4 +368,4 @@ out:
 	return rc;
 }
 
-/* aeiou.c ends here */
+/* translit.c ends here */

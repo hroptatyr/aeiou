@@ -36,6 +36,8 @@
  ***/
 #if !defined INCLUDED_nifty_h_
 #define INCLUDED_nifty_h_
+#include <stdlib.h>
+#include <string.h>
 
 #if !defined LIKELY
 # define LIKELY(_x)	__builtin_expect((_x), 1)

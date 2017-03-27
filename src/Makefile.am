@@ -8,10 +8,8 @@ AM_LDFLAGS = $(XCCLDFLAGS)
 
 bin_PROGRAMS =
 noinst_PROGRAMS =
-lib_LTLIBRARIES =
-noinst_LTLIBRARIES =
-pkglib_LTLIBRARIES =
 noinst_HEADERS =
+pkgdata_DATA =
 BUILT_SOURCES =
 EXTRA_DIST = $(BUILT_SOURCES)
 CLEANFILES = 
@@ -26,6 +24,14 @@ aeiou_SOURCES = aeiou.c aeiou.yuck
 aeiou_SOURCES += version.c version.h
 BUILT_SOURCES += aeiou.yucc
 
+bin_PROGRAMS += translit
+translit_SOURCES = translit.c translit.yuck
+translit_SOURCES += version.c version.h
+EXTRA_translit_SOURCES = unidecode_tr.c
+BUILT_SOURCES += translit.yucc
+
+pkgdata_DATA += tr_639_1_de.tr
+pkgdata_DATA += tr_639_1_ru.tr
 
 ## version rules
 version.c: version.c.in $(top_builddir)/.version
@@ -39,6 +45,13 @@ SUFFIXES += .yucc
 .yuck.yucc:
 	$(AM_V_GEN) PATH=$(top_builddir)/build-aux:"$${PATH}" \
 		yuck$(EXEEXT) gen -o $@ $<
+
+## tr rule
+SUFFIXES += .tr
+.c.tr:
+	$(AM_V_GEN) $(COMPILE) -DTRFILE='"$<"' $(srcdir)/translcc.c -o tr.out && \
+		./tr.out > $@
+	$(RM) tr.out
 
 ## Create preprocessor output (debugging purposes only)
 .c.i:
