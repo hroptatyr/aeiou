@@ -27,7 +27,11 @@ main(void)
 	/* fill the proto */
 	for (size_t i = 0U, j = 0U; i < countof(x); i++) {
 		if (x[i]) {
-			const size_t len = strlen(x[i]);
+			size_t len;
+
+			/* could be stashing semantics */
+			for (len = 0U; !x[i][len]; len += 8U);
+			len += strlen(x[i] + len);
 
 			/* write entry point */
 			dr->data[j] = htobe32(i);

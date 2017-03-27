@@ -161,6 +161,7 @@ install_tr(struct tr_proto_s *dr)
 static size_t
 transbuf(const uint_fast8_t *buf, size_t bsz)
 {
+	uint_fast32_t stash = 0U;
 	char out[4U * BSZ];
 	ssize_t i = 0U;
 	size_t n = 0U;
@@ -169,10 +170,10 @@ transbuf(const uint_fast8_t *buf, size_t bsz)
 		uint_fast32_t x = 0U;
 
 		if (LIKELY(buf[i] < 0x80U)) {
-			out[n++] = buf[i++];
+			x = buf[i++];
 		} else if (buf[i] < 0xc2U) {
 			/* illegal utf8 */
-			out[n++] = '?';
+			x = '?';
 			i++;
 		} else if (buf[i] < 0xe0U) {
 			/* 110x xxxx 10xx xxxx */
@@ -185,7 +186,6 @@ transbuf(const uint_fast8_t *buf, size_t bsz)
 			x ^= buf[i + 1U] & 0b111111U;
 
 			i += 2;
-			goto tr;
 		} else if (buf[i] < 0xf0U) {
 			/* 1110 xxxx 10xx xxxx 10xx xxxx */
 			if (UNLIKELY(i + 2U >= (ssize_t)bsz)) {
@@ -199,7 +199,6 @@ transbuf(const uint_fast8_t *buf, size_t bsz)
 			x ^= buf[i + 2U] & 0b111111U;
 
 			i += 3;
-			goto tr;
 		} else if (buf[i] < 0xf8U) {
 			/* 1111 0xxx  10xx xxxx  10xx xxxx  10xx xxxx */
 			if (UNLIKELY(i + 3U >= (ssize_t)bsz)) {
@@ -215,19 +214,67 @@ transbuf(const uint_fast8_t *buf, size_t bsz)
 			x ^= buf[i + 3U] & 0b111111U;
 
 			i += 4;
-			goto tr;
 		} else {
-			out[n++] = '?';
+			x = '?';
 			i++;
 		}
-		continue;
-	tr:
-		if (UNLIKELY(tr[x] == NULL || x >= countof(tr))) {
+
+		/* check stash */
+		if (UNLIKELY(stash)) {
+			size_t alt = 0U;
+			uint32_t itr;
+
+		rechk:
+			itr = 0U;
+			itr ^= tr[stash][alt++];
+			itr <<= 8U;
+			itr ^= tr[stash][alt++];
+			itr <<= 8U;
+			itr ^= tr[stash][alt++];
+			itr <<= 8U;
+			itr ^= tr[stash][alt++];
+
+			if (itr == x) {
+				/* bingo */
+				out[n++] = tr[stash][alt];
+				while (tr[stash][++alt]) {
+					out[n++] = tr[stash][alt];
+				}
+				stash = 0U;
+				continue;
+			}
+			/* otherwise skip over string */
+			while (tr[stash][(alt += 4U) - 1U]);
+			/* now we're either on the last element
+			 * or on the next candidate */
+			if (!tr[stash][alt]) {
+				goto rechk;
+			}
+			/* otherwise 'twas the last element, print him */
+			{
+				out[n++] = tr[stash][alt];
+				while (tr[stash][++alt]) {
+					out[n++] = tr[stash][alt];
+				}
+				stash = 0U;
+				/* and print X as well */
+			}
+			stash = 0U;
+		}
+
+		if (LIKELY(x < 0x80U)) {
+			out[n++] = x;
+			continue;
+		} else if (UNLIKELY(tr[x] == NULL || x >= countof(tr))) {
 			out[n++] = '?';
+			continue;
+		} else if (UNLIKELY(!(out[n] = tr[x][0U]))) {
+			/* needs stashing */
+			stash = x;
 			continue;
 		}
 		/* otherwise print transliteration */
-		out[n++] = tr[x][0U];
+		n++;
 		for (size_t j = 1U; tr[x][j]; j++) {
 			out[n++] = tr[x][j];
 		}
