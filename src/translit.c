@@ -44,9 +44,12 @@
 #include <stddef.h>
 #include <string.h>
 #include <stdio.h>
+#include <sys/stat.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <assert.h>
+#include "tr_proto.h"
+#include "boobs.h"
 #include "nifty.h"
 
 #define BSZ	(4096U)
@@ -71,6 +74,87 @@ error(const char *fmt, ...)
 	}
 	fputc('\n', stderr);
 	return;
+}
+
+static struct tr_proto_s*
+open_tr(const char *fn)
+{
+	struct tr_proto_s *dr = NULL;
+	struct stat st;
+	ssize_t z;
+	uint32_t n;
+	int fd;
+
+	if (UNLIKELY((fd = open(fn, O_RDONLY)) < 0)) {
+		return NULL;
+	} else if (UNLIKELY(read(fd, &n, sizeof(n)) < (ssize_t)sizeof(n))) {
+		goto clo;
+	} else if (UNLIKELY(!(n = be32toh(n)))) {
+		/* not necessarily unsuccessful */
+		goto clo;
+	} else if (UNLIKELY(n > countof(tr))) {
+		goto clo;
+	} else if (UNLIKELY(fstat(fd, &st) < 0)) {
+		goto clo;
+	} else if (UNLIKELY(st.st_size < (3 * n + 1) * (ssize_t)sizeof(n))) {
+		/* too small */
+		goto clo;
+	} else if (UNLIKELY((dr = malloc(st.st_size - sizeof(n))) == NULL)) {
+		/* shame */
+		goto clo;
+	}
+	/* we need to read everything */
+	z = st.st_size - sizeof(dr->n);
+	for (ssize_t nrd, of = 0;
+	     z > 0 && (nrd = read(fd, (uint8_t*)dr->data + of, z)) > 0;
+	     z -= nrd, of += nrd);
+	if (UNLIKELY(z > 0)) {
+	free:
+		/* read probably fucked */
+		free(dr);
+		dr = NULL;
+		goto clo;
+	}
+	/* should be max offset */
+	z = st.st_size - (2U * n + 1U) * sizeof(dr->n);
+	/* massage array, this is an all or nothing approach ... */
+	dr->n = n;
+	for (size_t i = 0U; i < n; i++) {
+		dr->data[0 + i] = be32toh(dr->data[0 + i]);
+		dr->data[n + i] = be32toh(dr->data[n + i]);
+		if (UNLIKELY(dr->data[0 + i] >= countof(tr) ||
+			     dr->data[n + i] >= z)) {
+			goto free;
+		}
+	}
+clo:
+	close(fd);
+	return dr;
+}
+
+static int
+close_tr(struct tr_proto_s *dr)
+{
+	if (UNLIKELY(dr == NULL)) {
+		return -1;
+	}
+	free(dr);
+	return 0;
+}
+
+static int
+install_tr(struct tr_proto_s *dr)
+{
+	char *of;
+
+	if (UNLIKELY(dr == NULL)) {
+		return -1;
+	}
+	of = (char*)(dr->data + (2U * dr->n));
+	for (size_t i = 0U; i < dr->n; i++) {
+		tr[dr->data[0 + i]] = of + dr->data[dr->n + i];
+	}
+	return 0;
 }
 
 
@@ -178,6 +262,7 @@ transfd(int fd)
 int
 main(int argc, char *argv[])
 {
+	struct tr_proto_s **trxt = NULL;
 	yuck_t argi[1U];
 	int rc = 0;
 	int fd;
@@ -185,6 +270,25 @@ main(int argc, char *argv[])
 	if (yuck_parse(argi, argc, argv)) {
 		rc = 1;
 		goto out;
+	}
+
+	if (argi->lang_nargs) {
+		trxt = calloc(sizeof(*trxt), argi->lang_nargs);
+	}
+	/* open all transliteration extensions */
+	for (size_t i = 0U; i < argi->lang_nargs; i++) {
+		if ((trxt[i] = open_tr(argi->lang_args[i])) == NULL) {
+			error("\
+Error: cannot load language file `%s'", argi->lang_args[i]);
+			rc = 2;
+			continue;
+		}
+	}
+	/* and install them */
+	for (size_t i = 0U; i < argi->lang_nargs; i++) {
+		if (trxt[i]) {
+			install_tr(trxt[i]);
+		}
 	}
 
 	if (!argi->nargs) {
@@ -206,6 +310,10 @@ main(int argc, char *argv[])
 		}
 
 		close(fd);
+	}
+
+	for (size_t i = 0U; i < argi->lang_nargs; i++) {
+		(void)close_tr(trxt[i]);
 	}
 
 out:

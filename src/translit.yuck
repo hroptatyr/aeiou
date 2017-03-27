@@ -1,3 +1,5 @@
 Usage: translit [OPTIONS] [FILE]...
 
 Transliterate FILEs.
+
+  -l, --lang=L...       Load language file L.
