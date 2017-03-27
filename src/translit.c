@@ -265,7 +265,7 @@ transbuf(const uint_fast8_t *buf, size_t bsz)
 		if (LIKELY(x < 0x80U)) {
 			out[n++] = x;
 			continue;
-		} else if (UNLIKELY(tr[x] == NULL || x >= countof(tr))) {
+		} else if (UNLIKELY(x >= countof(tr) || tr[x] == NULL)) {
 			out[n++] = '?';
 			continue;
 		} else if (UNLIKELY(!(out[n] = tr[x][0U]))) {
