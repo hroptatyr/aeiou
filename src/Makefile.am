@@ -8,10 +8,8 @@ AM_LDFLAGS = $(XCCLDFLAGS)
 
 bin_PROGRAMS =
 noinst_PROGRAMS =
-lib_LTLIBRARIES =
-noinst_LTLIBRARIES =
-pkglib_LTLIBRARIES =
 noinst_HEADERS =
+pkgdata_DATA =
 BUILT_SOURCES =
 EXTRA_DIST = $(BUILT_SOURCES)
 CLEANFILES = 
@@ -32,6 +30,7 @@ translit_SOURCES += version.c version.h
 EXTRA_translit_SOURCES = unidecode_tr.c
 BUILT_SOURCES += translit.yucc
 
+pkgdata_DATA += tr_639_1_de.tr
 
 ## version rules
 version.c: version.c.in $(top_builddir)/.version
