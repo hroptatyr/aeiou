@@ -51,7 +51,7 @@ main(void)
 	dr->n = htobe32(n);
 
 	/* write to file */
-	fwrite(dr, sizeof(dr->n), 2U * n + of, stdout);
+	fwrite(dr, sizeof(dr->n), 2U * n + 1U + of, stdout);
 
 	free(dr);
 	return 0;
