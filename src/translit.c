@@ -194,7 +194,7 @@ static inline void
 print(const char *x)
 {
 	const size_t len = strlen(x);
-	int spcp = outidx && (unsigned char)outbuf[outidx - 1] <= ' ';
+	int spcp = !outidx || (unsigned char)outbuf[outidx - 1] <= ' ';
 
 	if (UNLIKELY(!len)) {
 		return;
