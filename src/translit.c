@@ -162,6 +162,7 @@ install_tr(struct tr_proto_s *dr)
 /* printing */
 static char outbuf[4U * BSZ];
 static size_t outidx;
+static int nonspcp;
 
 static int
 flush(void)
@@ -184,6 +185,7 @@ static inline void
 printc(const char x)
 {
 	outbuf[outidx++] = x;
+	nonspcp = (unsigned char)x > ' ';
 	if (UNLIKELY(outidx >= countof(outbuf))) {
 		flush();
 	}
@@ -194,7 +196,6 @@ static inline void
 print(const char *x)
 {
 	const size_t len = strlen(x);
-	int spcp = !outidx || (unsigned char)outbuf[outidx - 1] <= ' ';
 
 	if (UNLIKELY(!len)) {
 		return;
@@ -202,10 +203,11 @@ print(const char *x)
 		flush();
 	}
 	outbuf[outidx] = x[0U];
-	outidx += !(spcp && x[0U] == ' ');
+	outidx += nonspcp || x[0U] != ' ';
 	for (size_t j = 1U; j < len; j++) {
 		outbuf[outidx++] = x[j];
 	}
+	nonspcp = (unsigned char)x[len - 1U] > ' ';
 	return;
 }
 
