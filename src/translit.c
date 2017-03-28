@@ -100,7 +100,7 @@ open_tr(const char *fn)
 	} else if (UNLIKELY(st.st_size < (3 * n + 1) * (ssize_t)sizeof(n))) {
 		/* too small */
 		goto clo;
-	} else if (UNLIKELY((dr = malloc(st.st_size - sizeof(n))) == NULL)) {
+	} else if (UNLIKELY((dr = malloc(st.st_size + sizeof(n))) == NULL)) {
 		/* shame */
 		goto clo;
 	}
