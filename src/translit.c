@@ -76,6 +76,7 @@ error(const char *fmt, ...)
 	return;
 }
 
+
 static struct tr_proto_s*
 open_tr(const char *fn)
 {
@@ -99,7 +100,7 @@ open_tr(const char *fn)
 	} else if (UNLIKELY(st.st_size < (3 * n + 1) * (ssize_t)sizeof(n))) {
 		/* too small */
 		goto clo;
-	} else if (UNLIKELY((dr = malloc(st.st_size - sizeof(n))) == NULL)) {
+	} else if (UNLIKELY((dr = malloc(st.st_size + sizeof(n))) == NULL)) {
 		/* shame */
 		goto clo;
 	}
@@ -158,13 +159,62 @@ install_tr(struct tr_proto_s *dr)
 }
 
 
+/* printing */
+static char outbuf[4U * BSZ];
+static size_t outidx;
+
+static int
+flush(void)
+{
+	if (UNLIKELY(!outidx)) {
+		return 0;
+	}
+	with (ssize_t nwr = write(STDOUT_FILENO, outbuf, outidx)) {
+		if (UNLIKELY(nwr <= 0)) {
+			return -1;
+		}
+		/* otherwise move stuff for future flushing */
+		memmove(outbuf, outbuf + nwr, outidx - nwr);
+		outidx -= nwr;
+	}
+	return 0;
+}
+
+static inline void
+printc(const char x)
+{
+	outbuf[outidx++] = x;
+	if (UNLIKELY(outidx >= countof(outbuf))) {
+		flush();
+	}
+	return;
+}
+
+static inline void
+print(const char *x)
+{
+	const size_t len = strlen(x);
+	int spcp = outidx && (unsigned char)outbuf[outidx - 1] <= ' ';
+
+	if (UNLIKELY(!len)) {
+		return;
+	} else if (UNLIKELY(outidx + len >= countof(outbuf))) {
+		flush();
+	}
+	outbuf[outidx] = x[0U];
+	outidx += !(spcp && x[0U] == ' ');
+	for (size_t j = 1U; j < len; j++) {
+		outbuf[outidx++] = x[j];
+	}
+	return;
+}
+
+
 static size_t
 transbuf(const uint_fast8_t *buf, size_t bsz)
 {
 	uint_fast32_t stash = 0U;
-	char out[4U * BSZ];
 	ssize_t i = 0U;
-	size_t n = 0U;
 
 	while (i < (ssize_t)bsz) {
 		uint_fast32_t x = 0U;
@@ -236,10 +286,7 @@ transbuf(const uint_fast8_t *buf, size_t bsz)
 
 			if (itr == x) {
 				/* bingo */
-				out[n++] = tr[stash][alt];
-				while (tr[stash][++alt]) {
-					out[n++] = tr[stash][alt];
-				}
+				print(tr[stash] + alt);
 				stash = 0U;
 				continue;
 			}
@@ -251,37 +298,27 @@ transbuf(const uint_fast8_t *buf, size_t bsz)
 				goto rechk;
 			}
 			/* otherwise 'twas the last element, print him */
-			{
-				out[n++] = tr[stash][alt];
-				while (tr[stash][++alt]) {
-					out[n++] = tr[stash][alt];
-				}
-				stash = 0U;
-				/* and print X as well */
-			}
+			print(tr[stash] + alt);
 			stash = 0U;
 		}
 
 		if (LIKELY(x < 0x80U)) {
-			out[n++] = x;
+			printc(x);
 			continue;
 		} else if (UNLIKELY(x >= countof(tr) || tr[x] == NULL)) {
-			out[n++] = '?';
+			printc('?');
 			continue;
-		} else if (UNLIKELY(!(out[n] = tr[x][0U]))) {
+		} else if (UNLIKELY(!tr[x][0U])) {
 			/* needs stashing */
 			stash = x;
 			continue;
 		}
 		/* otherwise print transliteration */
-		n++;
-		for (size_t j = 1U; tr[x][j]; j++) {
-			out[n++] = tr[x][j];
-		}
+		print(tr[x]);
 		continue;
 	}
 
-	write(STDOUT_FILENO, out, n);
+	(void)flush();
 	return bsz - i;
 }
 
