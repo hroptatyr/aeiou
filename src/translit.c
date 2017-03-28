@@ -162,6 +162,7 @@ install_tr(struct tr_proto_s *dr)
 /* printing */
 static char outbuf[4U * BSZ];
 static size_t outidx;
+static int nonspcp, upcasep;
 
 static int
 flush(void)
@@ -184,6 +185,8 @@ static inline void
 printc(const char x)
 {
 	outbuf[outidx++] = x;
+	nonspcp = (unsigned char)x > ' ';
+	upcasep = x >= 'A' && x <= 'Z';
 	if (UNLIKELY(outidx >= countof(outbuf))) {
 		flush();
 	}
@@ -194,7 +197,6 @@ static inline void
 print(const char *x)
 {
 	const size_t len = strlen(x);
-	int spcp = !outidx || (unsigned char)outbuf[outidx - 1] <= ' ';
 
 	if (UNLIKELY(!len)) {
 		return;
@@ -202,10 +204,24 @@ print(const char *x)
 		flush();
 	}
 	outbuf[outidx] = x[0U];
-	outidx += !(spcp && x[0U] == ' ');
-	for (size_t j = 1U; j < len; j++) {
-		outbuf[outidx++] = x[j];
+	outidx += nonspcp || x[0U] != ' ';
+	if (!upcasep || x[0U] < 'A' || x[0U] > 'Z') {
+		/* don't change cases */
+		for (size_t j = 1U; j < len; j++) {
+			outbuf[outidx++] = x[j];
+		}
+	} else {
+		/* case fiddling */
+		size_t j = 1U;
+		for (; j < len && x[j] >= 'a' && x[j] <= 'z'; j++) {
+			outbuf[outidx++] = (char)(x[j] ^ 0x20);
+		}
+		for (; j < len; j++) {
+			outbuf[outidx++] = x[j];
+		}
 	}
+	nonspcp = (unsigned char)x[len - 1U] > ' ';
+	upcasep = x[len - 1U] >= 'A' && x[len - 1U] <= 'Z';
 	return;
 }
 
