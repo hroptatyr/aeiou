@@ -183,10 +183,10 @@ flush(void)
 static inline void
 printc(const char x)
 {
+	outbuf[outidx++] = x;
 	if (UNLIKELY(outidx >= countof(outbuf))) {
 		flush();
 	}
-	outbuf[outidx++] = x;
 	return;
 }
 
@@ -194,13 +194,15 @@ static inline void
 print(const char *x)
 {
 	const size_t len = strlen(x);
+	int spcp = outidx && (unsigned char)outbuf[outidx - 1] <= ' ';
 
 	if (UNLIKELY(!len)) {
 		return;
 	} else if (UNLIKELY(outidx + len >= countof(outbuf))) {
 		flush();
 	}
-	outbuf[outidx++] = x[0U];
+	outbuf[outidx] = x[0U];
+	outidx += !(spcp && x[0U] == ' ');
 	for (size_t j = 1U; j < len; j++) {
 		outbuf[outidx++] = x[j];
 	}
