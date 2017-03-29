@@ -1,6 +1,9 @@
 Usage: aeiou [OPTIONS...] [FILE]...
 
-Reencode FILEs in uniform unicode.
+Replace unicode sequences by UTF-8 characters, and vice versa.
 
-  -c, --ascii           Replace unicode characters by code sequences.
-  -d, --decode          Replace code sequence by unicode characters.
+Code sequences can be either `\uxxxx` for 16-bit Unicode or
+\Uxxxxxxxx for 21-bit Unicode.
+
+  -c, --encode          Replace code sequence by unicode characters.
+  -d, --decode          Replace unicode characters by code sequences.
