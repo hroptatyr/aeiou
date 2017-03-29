@@ -18,6 +18,7 @@ SUFFIXES =
 CLEANFILES += version.c
 EXTRA_DIST += version.c.in
 EXTRA_DIST += nifty.h
+EXTRA_DIST += boobs.h
 
 bin_PROGRAMS += aeiou
 aeiou_SOURCES = aeiou.c aeiou.yuck
@@ -27,12 +28,19 @@ BUILT_SOURCES += aeiou.yucc
 bin_PROGRAMS += translit
 translit_SOURCES = translit.c translit.yuck
 translit_SOURCES += version.c version.h
-EXTRA_translit_SOURCES = unidecode_tr.c
+EXTRA_translit_SOURCES = tr_proto.h
+EXTRA_translit_SOURCES += tr_unidecode.c
+EXTRA_translit_SOURCES += tr_639_1_de.c
+EXTRA_translit_SOURCES += tr_639_1_ru.c
+EXTRA_translit_SOURCES += tr_639_1_ja.c
 BUILT_SOURCES += translit.yucc
 
 pkgdata_DATA += tr_639_1_de.tr
 pkgdata_DATA += tr_639_1_ru.tr
 pkgdata_DATA += tr_639_1_ja.tr
+
+EXTRA_DIST += translcc.c
+EXTRA_DIST += $(pkgdata_DATA)
 
 ## version rules
 version.c: version.c.in $(top_builddir)/.version
