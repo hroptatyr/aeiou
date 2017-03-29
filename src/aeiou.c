@@ -310,6 +310,7 @@ int
 main(int argc, char *argv[])
 {
 	yuck_t argi[1U];
+	size_t i = 0U;
 	int rc = 0;
 	int fd;
 
@@ -322,7 +323,7 @@ main(int argc, char *argv[])
 		fd = STDIN_FILENO;
 		goto option;
 	}
-	for (size_t i = 0U; i < argi->nargs; i++) {
+	for (i = 0U; i < argi->nargs; i++) {
 		if (UNLIKELY((fd = open(argi->args[i], O_RDONLY)) < 0)) {
 			error("Error: cannot open file `%s'", argi->args[i]);
 			rc = 1;

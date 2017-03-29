@@ -381,6 +381,7 @@ main(int argc, char *argv[])
 {
 	struct tr_proto_s **trxt = NULL;
 	yuck_t argi[1U];
+	size_t i = 0U;
 	int rc = 0;
 	int fd;
 
@@ -393,18 +394,18 @@ main(int argc, char *argv[])
 		trxt = calloc(sizeof(*trxt), argi->lang_nargs);
 	}
 	/* open all transliteration extensions */
-	for (size_t i = 0U; i < argi->lang_nargs; i++) {
-		if ((trxt[i] = open_tr(argi->lang_args[i])) == NULL) {
+	for (size_t j = 0U; j < argi->lang_nargs; j++) {
+		if ((trxt[j] = open_tr(argi->lang_args[j])) == NULL) {
 			error("\
-Error: cannot load language file `%s'", argi->lang_args[i]);
+Error: cannot load language file `%s'", argi->lang_args[j]);
 			rc = 2;
 			continue;
 		}
 	}
 	/* and install them */
-	for (size_t i = 0U; i < argi->lang_nargs; i++) {
-		if (trxt[i]) {
-			install_tr(trxt[i]);
+	for (size_t j = 0U; j < argi->lang_nargs; j++) {
+		if (trxt[j]) {
+			install_tr(trxt[j]);
 		}
 	}
 
@@ -412,7 +413,7 @@ Error: cannot load language file `%s'", argi->lang_args[i]);
 		fd = STDIN_FILENO;
 		goto translit;
 	}
-	for (size_t i = 0U; i < argi->nargs; i++) {
+	for (i = 0U; i < argi->nargs; i++) {
 		if (UNLIKELY((fd = open(argi->args[i], O_RDONLY)) < 0)) {
 			error("Error: cannot open file `%s'", argi->args[i]);
 			rc = 1;
@@ -429,8 +430,8 @@ Error: cannot load language file `%s'", argi->lang_args[i]);
 		close(fd);
 	}
 
-	for (size_t i = 0U; i < argi->lang_nargs; i++) {
-		(void)close_tr(trxt[i]);
+	for (size_t j = 0U; j < argi->lang_nargs; j++) {
+		(void)close_tr(trxt[j]);
 	}
 
 out:
