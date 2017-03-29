@@ -1,7 +1,16 @@
 ASCII Everywhere
 ================
 
-A set of command-line tools to convert between ASCII and UTF-8.
+No-frills, zero-dependency command-line tools to convert (transliterate)
+between UTF-8 and ASCII.
+
+
+Red tape
+--------
+
++ no dependencies other than a POSIX system and a C99 compiler
++ licensed under [BSD3c][1]
+
 
 Motivation
 ----------
@@ -24,3 +33,45 @@ work at all when the environment isn't in sync with the expectations of
 the author.  Heavy-duty tools like sort or grep behave differently for
 different environments.  ASCII, however, seems to be the remedy to all
 problems.
+
+
+`translit`
+----------
+
+Tool to transliterate between UTF-8 encoded files and ASCII.  Based on
+Sean Burke's [Text::Unidecode][2].  Unlike the perl version, `translit`
+can maintain case:
+
+    $ translit <<EOF
+    ЧАЩА
+    EOF
+    CHASHCHA
+
+and condense spaces:
+
+    $ translit <<EOF
+    ノーベル賞の
+    EOF
+    no--beru Shang no
+
+
+`aeiou`
+-------
+
+Tool to replace unicode codepoint strings (`\uxxxx` or `\Uxxxxxxxx`)
+with their unicode character encoded as UTF-8, or vice versa.
+
+Example:
+
+    $ /bin/echo '\u307e\u30c4\u3057\u305f' | aeiou | translit
+    matusita
+
+    $ /bin/echo '\u307e\u30c4\u3057\u305f' | aeiou | aeiou -d
+    \u307e\u30c4\u3057\u305f
+
+Note: The shell's `echo` routine (e.g. zsh's) might already interpret
+the unicode sequence.
+
+
+  [1]: http://opensource.org/licenses/BSD-3-Clause
+  [2]: http://search.cpan.org/~sburke/Text-Unidecode-1.30/lib/Text/Unidecode.pm
