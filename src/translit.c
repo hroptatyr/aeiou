@@ -200,28 +200,45 @@ print(const char *x)
 
 	if (UNLIKELY(!len)) {
 		return;
-	} else if (UNLIKELY(outidx + len >= countof(outbuf))) {
+	}
+	if (UNLIKELY(upcasep && x[0U] >= 'A' && x[0U] <= 'Z')) {
+		/* case fiddling backwards */
+		for (size_t i = outidx;
+		     i > 0U && outbuf[i - 1] >= 'a' && outbuf[i - 1] <= 'z';
+		     i--) {
+			outbuf[i - 1] ^= (char)0x20;
+		}
+	}
+
+	if (UNLIKELY(outidx + len >= countof(outbuf))) {
 		flush();
 	}
+
 	outbuf[outidx] = x[0U];
 	outidx += nonspcp || x[0U] != ' ';
+
 	if (!upcasep || x[0U] < 'A' || x[0U] > 'Z') {
-		/* don't change cases */
+		upcasep = x[0U] >= 'A' && x[0U] <= 'Z';
+		/* don't change cases but keep track */
 		for (size_t j = 1U; j < len; j++) {
 			outbuf[outidx++] = x[j];
+			upcasep &=
+				x[j] >= 'A' && x[j] <= 'Z' ||
+				x[j] >= 'a' && x[j] <= 'z';
 		}
 	} else {
-		/* case fiddling */
+		/* case fiddling forwards */
 		size_t j = 1U;
+		upcasep = 1;
 		for (; j < len && x[j] >= 'a' && x[j] <= 'z'; j++) {
 			outbuf[outidx++] = (char)(x[j] ^ 0x20);
 		}
 		for (; j < len; j++) {
 			outbuf[outidx++] = x[j];
+			upcasep = 0;
 		}
 	}
 	nonspcp = (unsigned char)x[len - 1U] > ' ';
-	upcasep = x[len - 1U] >= 'A' && x[len - 1U] <= 'Z';
 	return;
 }
 
