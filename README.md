@@ -54,6 +54,38 @@ and condense spaces:
     EOF
     no--beru Shang no
 
+Another source of controversy in Sean Burke's version (and many other
+transliterators) is that certain characters transliterate to something
+different in different languages.  The classic example being `ü` which
+Germans would transcribe as `ue` whereas Spanish people would
+transliterate `pingüino` as `pinguino`.
+
+Language specific packs of transliterations can be generated with the
+`translcc` tool.  The definitions themselves are plain C99 designated
+arrays.  Language packs can be loaded by `-l|--lang`:
+
+    $ translit -l tr_639_1_de.tr <<EOF
+    Überschuß
+    Äpfel
+    KÖRBE
+    EOF
+    Ueberschuss
+    Aepfel
+    KOERBE
+
+Furthermore one character of context can be used to produce compound
+transliterations:
+
+    $ translit -l tr_639_1_ru.tr <<EOF
+    Такси
+    EOF
+    Taxi
+
+    $ translit -i tr_639_1_ja.tr <<EOF
+    シュヴァンク
+    EOF
+    syuvuanku
+
 
 `aeiou`
 -------
