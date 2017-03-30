@@ -19,7 +19,7 @@ script:
     else
       make check;
     fi
-    || { cat test/test-suite.log; false; }
+    || { cat test/test-suite.log aeiou-*/_build/test/test-suite.log; false; }
 
 deploy:
   provider: releases
