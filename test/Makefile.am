@@ -26,4 +26,10 @@ AM_CLIT_LOG_FLAGS = -v --builddir $(top_builddir)/src
 TESTS_ENVIRONMENT = root=$(top_srcdir) AEIOU_TRDIR=$(top_builddir)/src
 
 
+TESTS += readme_test_01.clit
+TESTS += readme_test_02.clit
+TESTS += readme_test_03.clit
+TESTS += readme_test_04.clit
+TESTS += readme_test_05.clit
+
 ## Makefile.am ends here

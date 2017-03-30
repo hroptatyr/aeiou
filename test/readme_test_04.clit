@@ -1,0 +1,11 @@
+#!/usr/bin/clitoris  ## -*- shell-script -*-
+
+$ translit -l tr_639_1_ru <<EOF
+Такси
+EOF
+Taxi
+$ translit -l tr_639_1_ja <<EOF
+シュヴァンク
+EOF
+syuvuanku
+$

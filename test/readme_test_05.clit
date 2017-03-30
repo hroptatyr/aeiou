@@ -1,0 +1,7 @@
+#!/usr/bin/clitoris  ## -*- shell-script -*-
+
+$ /bin/echo '\u307e\u30c4\u3057\u305f' | aeiou | translit
+matusita
+$ /bin/echo '\u307e\u30c4\u3057\u305f' | aeiou | aeiou -d
+\u307e\u30c4\u3057\u305f
+$

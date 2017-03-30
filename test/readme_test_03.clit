@@ -1,0 +1,11 @@
+#!/usr/bin/clitoris  ## -*- shell-script -*-
+
+$ translit -l tr_639_1_de <<EOF
+Überschuß
+Äpfel
+KÖRBE
+EOF
+Ueberschuss
+Aepfel
+KOERBE
+$

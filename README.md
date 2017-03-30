@@ -64,7 +64,7 @@ Language specific packs of transliterations can be generated with the
 `translcc` tool.  The definitions themselves are plain C99 designated
 arrays.  Language packs can be loaded by `-l|--lang`:
 
-    $ translit -l tr_639_1_de.tr <<EOF
+    $ translit -l tr_639_1_de <<EOF
     Überschuß
     Äpfel
     KÖRBE
@@ -76,12 +76,12 @@ arrays.  Language packs can be loaded by `-l|--lang`:
 Furthermore one character of context can be used to produce compound
 transliterations:
 
-    $ translit -l tr_639_1_ru.tr <<EOF
+    $ translit -l tr_639_1_ru <<EOF
     Такси
     EOF
     Taxi
 
-    $ translit -i tr_639_1_ja.tr <<EOF
+    $ translit -l tr_639_1_ja <<EOF
     シュヴァンク
     EOF
     syuvuanku
