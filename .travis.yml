@@ -14,7 +14,12 @@ before_script:
 script:
   - ./configure || { cat config.log; false; }
   - make
-  - make distcheck || { cat test/test-suite.log; false; }
+  - if test "${TRAVIS_OS_NAME}" = "linux"; then
+      make distcheck;
+    else
+      make check;
+    fi
+    || { cat test/test-suite.log; false; }
 
 ## whitelist
 branches:
