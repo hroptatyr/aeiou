@@ -52,7 +52,8 @@
 #include "boobs.h"
 #include "nifty.h"
 
-#define BSZ	(4096U)
+#define BSZ		(4096U)
+#define AEIOU_TRSUF	".tr"
 
 static char *tr[0x10000U] = {
 #include "tr_unidecode.c"
@@ -76,17 +77,110 @@ error(const char *fmt, ...)
 	return;
 }
 
-
-static struct tr_proto_s*
-open_tr(const char *fn)
+static size_t
+xstrlcpy(char *restrict dst, const char *src, size_t dsz)
 {
+	size_t ssz = strlen(src);
+	if (ssz > dsz) {
+		ssz = dsz - 1U;
+	}
+	memcpy(dst, src, ssz);
+	dst[ssz] = '\0';
+	return ssz;
+}
+
+static ssize_t
+get_myself(char *restrict buf, size_t bsz)
+{
+	ssize_t off;
+	char *mp;
+
+#if defined __linux__
+	static const char myself[] = "/proc/self/exe";
+
+	if (UNLIKELY((off = readlink(myself, buf, bsz)) < 0)) {
+		/* shame */
+		return -1;
+	}
+#elif defined __NetBSD__
+	static const char myself[] = "/proc/curproc/exe";
+
+	if (UNLIKELY((off = readlink(myself, buf, bsz)) < 0)) {
+		/* nawww */
+		return -1;
+	}
+#elif defined __DragonFly__
+	static const char myself[] = "/proc/curproc/file";
+
+	if (UNLIKELY((off = readlink(myself, buf, bsz)) < 0)) {
+		/* blimey */
+		return -1;
+	}
+#elif defined __FreeBSD__
+	int mib[] = {CTL_KERN, KERN_PROC, KERN_PROC_PATHNAME, -1};
+
+	/* make sure that \0 terminator fits */
+	buf[--bsz] = '\0';
+	if (UNLIKELY(sysctl(mib, countof(mib), buf, &bsz, NULL, 0) < 0)) {
+		return -1;
+	}
+	/* we can be grateful they gave us the path, counting is our job */
+	off = strlen(buf);
+#elif defined __sun || defined sun
+
+	snprintf(buf, bsz, "/proc/%d/path/a.out", getpid());
+	if (UNLIKELY((off = readlink(buf, buf, bsz)) < 0)) {
+		return -1;
+	}
+#elif defined __APPLE__ && defined __MACH__
+	extern int _NSGetExecutablePath(char*, uint32_t*);
+	uint32_t z = --bsz;
+	if (_NSGetExecutablePath(buf, &z) != 0) {
+		return -1;
+	}
+	/* good, do the counting */
+	off = strlen(buf);
+#else
+	return -1;
+#endif
+
+	/* go back to the dir bit */
+	for (mp = buf + off - 1U; mp > buf && *mp != '/'; mp--);
+	/* should be bin/, go up one level */
+	*mp = '\0';
+	for (; mp > buf && *mp != '/'; mp--);
+	/* check if we're right */
+	if (UNLIKELY(strcmp(++mp, "bin"))) {
+		/* oh, it's somewhere but not bin/? */
+		return -1;
+	}
+	/* now just use share/yuck/ */
+	xstrlcpy(mp, "share/" PACKAGE_NAME, bsz - (mp - buf));
+	mp += strlenof("share/" PACKAGE_NAME);
+	return mp - buf;
+}
+
+
+/* search dir descriptor */
+static int srchdd = -1;
+
+static struct tr_proto_s*
+openat_tr(int dirfd, const char *fn)
+{
+	char fnsuf[256U];
 	struct tr_proto_s *dr = NULL;
 	struct stat st;
 	ssize_t z;
 	uint32_t n;
 	int fd;
 
-	if (UNLIKELY((fd = open(fn, O_RDONLY)) < 0)) {
+	/* prepare FN with suffix */
+	with (size_t ncpy = xstrlcpy(fnsuf, fn, sizeof(fnsuf))) {
+		xstrlcpy(fnsuf + ncpy, AEIOU_TRSUF, sizeof(fnsuf) - ncpy);
+	}
+
+	if (UNLIKELY((fd = openat(dirfd, fnsuf, O_RDONLY)) < 0 &&
+		     (fd = openat(dirfd, fn, O_RDONLY)) < 0)) {
 		return NULL;
 	} else if (UNLIKELY(read(fd, &n, sizeof(n)) < (ssize_t)sizeof(n))) {
 		goto clo;
@@ -156,6 +250,51 @@ install_tr(struct tr_proto_s *dr)
 		tr[dr->data[0 + i]] = of + dr->data[dr->n + i];
 	}
 	return 0;
+}
+
+static int
+init_searchdirs(void)
+{
+#if defined O_PATH
+	const int flags = O_PATH;
+#else  /* !O_PATH */
+	const int flags = 0;
+#endif	/* O_PATH */
+	const char *d;
+	char trdir[256U];
+	ssize_t ntrdir;
+
+	if ((d = getenv("AEIOU_TRDIR")) != NULL) {
+		;
+	} else if ((ntrdir = get_myself(trdir, sizeof(trdir))) > 0) {
+		d = trdir;
+	} else {
+		/* best bugger off */
+		return -1;
+	}
+	return (srchdd = open(d, flags));
+}
+
+static int
+fini_searchdirs(void)
+{
+	if (srchdd < 0) {
+		return -1;
+	}
+	return close(srchdd);
+}
+
+static struct tr_proto_s*
+open_tr(const char *fn)
+{
+	struct tr_proto_s *res;
+
+	if (fn[0U] == '/' || srchdd < 0 ||
+	    (res = openat_tr(srchdd, fn)) == NULL) {
+		/* tried searchdir (or absolute), try current dir next */
+		res = openat_tr(AT_FDCWD, fn);
+	}
+	return res;
 }
 
 
@@ -392,6 +531,13 @@ main(int argc, char *argv[])
 
 	if (argi->lang_nargs) {
 		trxt = calloc(sizeof(*trxt), argi->lang_nargs);
+		if (UNLIKELY(trxt == NULL)) {
+			error("\
+Error: cannot reserve memory for language files");
+			rc = 1;
+			goto out;
+		}
+		init_searchdirs();
 	}
 	/* open all transliteration extensions */
 	for (size_t j = 0U; j < argi->lang_nargs; j++) {
@@ -433,6 +579,7 @@ Error: cannot load language file `%s'", argi->lang_args[j]);
 	for (size_t j = 0U; j < argi->lang_nargs; j++) {
 		(void)close_tr(trxt[j]);
 	}
+	fini_searchdirs();
 
 out:
 	yuck_free(argi);
