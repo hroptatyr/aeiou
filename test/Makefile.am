@@ -23,13 +23,30 @@ CLEANFILES = $(check_PROGRAMS)
 ## summon our helper
 include clitoris.am
 AM_CLIT_LOG_FLAGS = -v --builddir $(top_builddir)/src
-TESTS_ENVIRONMENT = root=$(top_srcdir) AEIOU_TRDIR=$(top_builddir)/src
+TESTS_ENVIRONMENT = root=$(top_srcdir) AEIOU_TRPATH=$(TRDIR)
 
 
+## transliteration files used in the tests
+TRDIR_FILES =
+TRDIR_FILES += tr_639_1_de.tr
+TRDIR_FILES += tr_639_1_ja.tr
+TRDIR_FILES += tr_639_1_ru.tr
+TRDIR = $(builddir)
+
+## examples from README
 TESTS += readme_test_01.clit
 TESTS += readme_test_02.clit
 TESTS += readme_test_03.clit
 TESTS += readme_test_04.clit
 TESTS += readme_test_05.clit
+
+
+## relocate all trdir files here
+VPATH += $(top_builddir)/src:$(top_srcdir)/src
+check: check_TRDIR_FILES
+check_TRDIR_FILES: $(TRDIR_FILES)
+	-$(LN_S) $^ $(TRDIR)
+
+DISTCLEANFILES = $(TRDIR_FILES)
 
 ## Makefile.am ends here
