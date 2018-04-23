@@ -47,6 +47,7 @@ VPATH = $(srcdir):$(top_builddir)/src:$(top_srcdir)/src
 check: check_TRDIR_FILES
 check_TRDIR_FILES: $(TRDIR_FILES)
 	-$(LN_S) $^ $(TRDIR)
+	-$(LN_S) $(.ALLSRC) $(TRDIR)
 
 DISTCLEANFILES = $(TRDIR_FILES)
 
