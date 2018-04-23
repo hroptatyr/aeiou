@@ -14,6 +14,7 @@ EXTRA_DIST = $(BUILT_SOURCES) $(TESTS)
 TESTS =
 TEST_EXTENSIONS =
 BUILT_SOURCES =
+SUFFIXES =
 dt_tests =
 bin_tests =
 batch_tests =
