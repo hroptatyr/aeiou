@@ -42,7 +42,7 @@ TESTS += readme_test_05.clit
 
 
 ## relocate all trdir files here
-VPATH += $(top_builddir)/src:$(top_srcdir)/src
+VPATH = $(srcdir):$(top_builddir)/src:$(top_srcdir)/src
 check: check_TRDIR_FILES
 check_TRDIR_FILES: $(TRDIR_FILES)
 	-$(LN_S) $^ $(TRDIR)
