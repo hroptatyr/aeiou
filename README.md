@@ -95,10 +95,10 @@ with their unicode character encoded as UTF-8, or vice versa.
 
 Example:
 
-    $ /bin/echo '\u307e\u30c4\u3057\u305f' | aeiou | translit
+    $ /bin/echo '\u307e\u30c4\u3057\u305f' | aeiou -d | translit
     matusita
 
-    $ /bin/echo '\u307e\u30c4\u3057\u305f' | aeiou | aeiou -d
+    $ /bin/echo '\u307e\u30c4\u3057\u305f' | aeiou -d | aeiou
     \u307e\u30c4\u3057\u305f
 
 Note: The shell's `echo` routine (e.g. zsh's) might already interpret

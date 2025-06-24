@@ -93,7 +93,7 @@ _chex(const uint_fast8_t c)
 
 
 static size_t
-aeebuf(const uint_fast8_t *buf, size_t bsz)
+aedbuf(const uint_fast8_t *buf, size_t bsz)
 {
 	char out[4U * BSZ];
 	ssize_t i = 0U;
@@ -181,7 +181,7 @@ aeebuf(const uint_fast8_t *buf, size_t bsz)
 }
 
 static size_t
-aedbuf(const uint_fast8_t *buf, size_t bsz)
+aeebuf(const uint_fast8_t *buf, size_t bsz)
 {
 	char out[4U * BSZ];
 	ssize_t i = 0U;
@@ -270,14 +270,14 @@ aedbuf(const uint_fast8_t *buf, size_t bsz)
 
 
 static int
-aedfd(int fd)
+aeefd(int fd)
 {
 	uint_fast8_t buf[BSZ];
 	size_t of = 0U;
 	ssize_t nrd;
 
 	while ((nrd = read(fd, buf + of, sizeof(buf) - of)) > 0) {
-		of = aedbuf(buf, of + nrd);
+		of = aeebuf(buf, of + nrd);
 		for (size_t i = 0U; i < of; i++) {
 			buf[i] = buf[sizeof(buf) - of + i];
 		}
@@ -287,14 +287,14 @@ aedfd(int fd)
 }
 
 static int
-aeefd(int fd)
+aedfd(int fd)
 {
 	uint_fast8_t buf[BSZ];
 	size_t of = 0U;
 	ssize_t nrd;
 
 	while ((nrd = read(fd, buf + of, sizeof(buf) - of)) > 0) {
-		of = aeebuf(buf, of + nrd);
+		of = aedbuf(buf, of + nrd);
 		for (size_t i = 0U; i < of; i++) {
 			buf[i] = buf[sizeof(buf) - of + i];
 		}
